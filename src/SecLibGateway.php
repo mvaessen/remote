@@ -2,13 +2,13 @@
 
 namespace Collective\Remote;
 
-use phpseclib\Net\SFTP;
-use phpseclib\Net\SSH2;
-use phpseclib\Crypt\RSA;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
-use phpseclib\System\SSH\Agent;
 use Illuminate\Filesystem\Filesystem;
+use phpseclib3\Crypt\Common\AsymmetricKey;
+use phpseclib3\Crypt\PublicKeyLoader;
+use phpseclib3\Net\SFTP;
+use phpseclib3\System\SSH\Agent;
 
 class SecLibGateway implements GatewayInterface
 {
@@ -50,7 +50,7 @@ class SecLibGateway implements GatewayInterface
     /**
      * The SecLib connection instance.
      *
-     * @var \phpseclib\Net\SFTP
+     * @var SFTP
      */
     protected $connection;
 
@@ -109,7 +109,7 @@ class SecLibGateway implements GatewayInterface
     /**
      * Get the underlying SFTP connection.
      *
-     * @return \phpseclib\Net\SFTP
+     * @return SFTP
      */
     public function getConnection()
     {
@@ -126,7 +126,7 @@ class SecLibGateway implements GatewayInterface
      *
      * @throws \InvalidArgumentException
      *
-     * @return \Crypt_RSA|\System_SSH_Agent|string
+     * @return AsymmetricKey|\phpseclib3\System\SSH\Agent|string
      */
     protected function getAuthForLogin()
     {
@@ -135,15 +135,15 @@ class SecLibGateway implements GatewayInterface
         }
 
         // If a "key" was specified in the auth credentials, we will load it into a
-        // secure RSA key instance, which will be used to connect to the servers
+        // secure key instance, which will be used to connect to the servers
         // in place of a password, and avoids the developer specifying a pass.
-        elseif ($this->hasRsaKey()) {
-            return $this->loadRsaKey($this->auth);
+        elseif ($this->hasKey()) {
+            return $this->loadKey($this->auth);
         }
 
         // If a plain password was set on the auth credentials, we will just return
         // that as it can be used to connect to the server. This will be used if
-        // there is no RSA key and it gets specified in the credential arrays.
+        // there is no key and it gets specified in the credential arrays.
         elseif (isset($this->auth['password'])) {
             return $this->auth['password'];
         }
@@ -152,7 +152,7 @@ class SecLibGateway implements GatewayInterface
     }
 
     /**
-     * Determine if the SSH Agent should provide an RSA key.
+     * Determine if the SSH Agent should provide a key.
      *
      * @return bool
      */
@@ -164,7 +164,7 @@ class SecLibGateway implements GatewayInterface
     /**
      * Get a new SSH Agent instance.
      *
-     * @return \phpseclib\System\SSH\Agent
+     * @return Agent
      */
     public function getAgent()
     {
@@ -172,11 +172,11 @@ class SecLibGateway implements GatewayInterface
     }
 
     /**
-     * Determine if an RSA key is configured.
+     * Determine if a key is configured.
      *
      * @return bool
      */
-    protected function hasRsaKey()
+    protected function hasKey()
     {
         $hasKey = (isset($this->auth['key']) && trim($this->auth['key']) != '');
 
@@ -184,51 +184,25 @@ class SecLibGateway implements GatewayInterface
     }
 
     /**
-     * Load the RSA key instance.
+     * Load the key instance.
      *
      * @param array $auth
      *
-     * @return \Crypt_RSA
+     * @return AsymmetricKey
      */
-    protected function loadRsaKey(array $auth)
+    protected function loadKey(array $auth)
     {
-        with($key = $this->getKey($auth))->loadKey($this->readRsaKey($auth));
-
-        return $key;
+        return PublicKeyLoader::load($this->readKey($auth));
     }
 
     /**
-     * Create a new RSA key instance.
-     *
-     * @param array $auth
-     *
-     * @return \Crypt_RSA
-     */
-    protected function getKey(array $auth)
-    {
-        with($key = $this->getNewKey())->setPassword(Arr::get($auth, 'keyphrase'));
-
-        return $key;
-    }
-
-    /**
-     * Get a new RSA key instance.
-     *
-     * @return \phpseclib\Crypt\RSA
-     */
-    public function getNewKey()
-    {
-        return new RSA();
-    }
-
-    /**
-     * Read the contents of the RSA key.
+     * Read the contents of the key.
      *
      * @param array $auth
      *
      * @return string
      */
-    protected function readRsaKey(array $auth)
+    protected function readKey(array $auth)
     {
         if (isset($auth['key'])) {
             return $this->files->get($auth['key']);
@@ -282,9 +256,9 @@ class SecLibGateway implements GatewayInterface
      *
      * @return void
      */
-    public function run($command)
+    public function run($command, $closure = null)
     {
-        $this->getConnection()->exec($command, false);
+        $this->getConnection()->exec($command, $closure);
     }
 
     /**
@@ -373,18 +347,6 @@ class SecLibGateway implements GatewayInterface
     public function delete($remote)
     {
         return $this->getConnection()->delete($remote);
-    }
-
-    /**
-     * Get the next line of output from the server.
-     *
-     * @return string|null
-     */
-    public function nextLine()
-    {
-        $value = $this->getConnection()->_get_channel_packet(SSH2::CHANNEL_EXEC);
-
-        return $value === true ? null : $value;
     }
 
     /**
