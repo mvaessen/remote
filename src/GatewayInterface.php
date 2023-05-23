@@ -27,7 +27,7 @@ interface GatewayInterface
      *
      * @return void
      */
-    public function run($command);
+    public function run($command, $callback = null);
 
     /**
      * Download the contents of a remote file.
@@ -95,13 +95,6 @@ interface GatewayInterface
      * @return bool
      */
     public function delete($remote);
-
-    /**
-     * Get the next line of output from the server.
-     *
-     * @return string|null
-     */
-    public function nextLine();
 
     /**
      * Get the exit status of the last command.
