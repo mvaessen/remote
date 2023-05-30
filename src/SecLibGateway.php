@@ -70,6 +70,11 @@ class SecLibGateway implements GatewayInterface
         $this->setHostAndPort($host);
     }
 
+    public function __destruct()
+    {
+        unset($this->connection);
+    }
+
     /**
      * Set the host and port from a full host string.
      *

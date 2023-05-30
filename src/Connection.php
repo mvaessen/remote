@@ -69,6 +69,11 @@ class Connection implements ConnectionInterface
         $this->gateway = $gateway ?: new SecLibGateway($host, $auth, new Filesystem(), $timeout);
     }
 
+    public function __destruct()
+    {
+        unset($this->gateway);
+    }
+
     /**
      * Define a set of commands as a task.
      *
