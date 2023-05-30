@@ -72,6 +72,13 @@ class SecLibGateway implements GatewayInterface
 
     public function __destruct()
     {
+        if(
+            $this->connection instanceof SFTP and
+            $this->connection->isConnected()
+        ) {
+            $this->connection->disconnect();
+        }
+
         unset($this->connection);
     }
 
